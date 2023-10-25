@@ -1,31 +1,43 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import { Pomodoro } from "./pomodoro";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-  // Use the console to output diagnostic information (console.log) and errors (console.error)
-  // This line of code will only be executed once when your extension is activated
-  console.log(
-    'Congratulations, your extension "pomodoro-vscode" is now active!'
-  );
+  const timer = new Pomodoro();
 
-  // The command has been defined in the package.json file
-  // Now provide the implementation of the command with registerCommand
-  // The commandId parameter must match the command field in package.json
-  let disposable = vscode.commands.registerCommand(
-    "pomodoro-vscode.helloWorld",
+  console.log("pomodoro activated!");
+
+  const startDisposable = vscode.commands.registerCommand(
+    "pomodoro-vscode.start",
     () => {
-      // The code you place here will be executed every time your command is executed
-      // Display a message box to the user
-      vscode.window.showInformationMessage("Hello VSCode!");
+      timer.start();
+      vscode.window.showInformationMessage("Start");
     }
   );
 
-  context.subscriptions.push(disposable);
+  const stopDisposable = vscode.commands.registerCommand(
+    "pomodoro-vscode.stop",
+    () => {
+      timer.stop();
+      vscode.window.showInformationMessage("Stop");
+    }
+  );
+
+  const skipDisposable = vscode.commands.registerCommand(
+    "pomodoro-vscode.skip",
+    () => {
+      timer.skip();
+      vscode.window.showInformationMessage("Skip");
+    }
+  );
+
+  const consoleDisposable = vscode.commands.registerCommand(
+    "pomodoro-vscode.console",
+    () => {
+      vscode.window.showInformationMessage(timer.toString());
+    }
+  );
+
+  context.subscriptions.push(startDisposable, stopDisposable, skipDisposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}

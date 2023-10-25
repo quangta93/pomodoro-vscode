@@ -9,13 +9,25 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "pomodoro-vscode.helloWorld",
-        "title": "Hello World"
+        "command": "pomodoro-vscode.start",
+        "title": "Pomodoro: Start/resume current timer"
+      },
+      {
+        "command": "pomodoro-vscode.stop",
+        "title": "Pomodoro: Stop current timer"
+      },
+      {
+        "command": "pomodoro-vscode.skip",
+        "title": "Pomodoro: Skip current period"
+      },
+      {
+        "command": "pomodoro-vscode.console",
+        "title": "Pomodoro: Console"
       }
     ]
   },

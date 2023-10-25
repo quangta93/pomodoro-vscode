@@ -47,6 +47,16 @@ export class Pomodoro {
     return this.periodCount % this.cycleLength === 0;
   }
 
+  public get time() {
+    const mins = `${Math.floor(this.remainingMs / MINUTE_1)}`.padStart(2, "0");
+    const secs = `${Math.floor((this.remainingMs % MINUTE_1) / 1000)}`.padStart(
+      2,
+      "0"
+    );
+
+    return `${mins}:${secs}`;
+  }
+
   private countdown() {
     this.timer = setInterval(() => {
       if (this.remainingMs === 0) {
@@ -80,5 +90,14 @@ export class Pomodoro {
     clearInterval(this.timer);
     this.remainingMs = 0;
     this.periodCount += 1;
+  }
+
+  public toString() {
+    const states = [
+      ["clock", this.time].join("="),
+      ["isShortBreak", this.isShortBreak].join("="),
+      ["isLongBreak", this.isLongBreak].join("="),
+    ];
+    return `[pomodoro] ${states.join("  ")}`;
   }
 }
