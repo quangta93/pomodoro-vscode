@@ -1,103 +1,118 @@
+import { EventEmitter } from "vscode";
+import { BehaviorSubject } from "rxjs";
+
 const MINUTE_1 = 6e4;
 
 // unit == minute
 export type Options = Partial<{
-  duration: number;
+  focus: number;
   shortBreak: number;
   longBreak: number;
-  periodsPerSet: number;
 }>;
 
+export type State = {
+  isRunning: boolean;
+  sessionCount: number;
+  remainingMs: number;
+  currentSession: "focus" | "short_break" | "long_break";
+};
+
+const CYCLE_LEN = 4; // focus + short_break + focus + long_break
+
 export class Pomodoro {
-  private durationMs: number;
-  private shortBreakMs: number;
-  private longBreakMs: number;
-  private cycleLength: number;
+  private _focusMs: number;
+  private _shortBreakMs: number;
+  private _longBreakMs: number;
 
-  private remainingMs: number = 0;
-  private timer: NodeJS.Timeout | undefined;
+  private _timerId: NodeJS.Timeout | undefined;
 
-  /**
-   * Total count of both working periods & breaks.
-   *
-   * E.g. for the default settings, here are the periods of a full cycle:
-   * |work|short_break|work|short_break|work|short_break|work|long_break|
-   *
-   * Formula: periods_per_cycle = 2 * working_periods_per_set
-   */
-  private periodCount = 1;
+  private _state$: BehaviorSubject<State>;
+  private _state: State;
 
   constructor(public opts?: Options) {
-    this.durationMs = (this.opts?.duration ?? 25) * MINUTE_1;
-    this.shortBreakMs = (this.opts?.shortBreak ?? 5) * MINUTE_1;
-    this.longBreakMs = (this.opts?.longBreak ?? 20) * MINUTE_1;
-    this.cycleLength = this.opts?.periodsPerSet ?? 4;
-  }
+    this._focusMs = (this.opts?.focus ?? 25) * MINUTE_1;
+    this._shortBreakMs = (this.opts?.shortBreak ?? 5) * MINUTE_1;
+    this._longBreakMs = (this.opts?.longBreak ?? 20) * MINUTE_1;
 
-  public get cycleCount() {
-    return Math.floor(this.periodCount / this.cycleLength);
+    this._state = {
+      isRunning: false,
+      sessionCount: 1,
+      remainingMs: this._focusMs,
+      currentSession: "focus",
+    };
+    this._state$ = new BehaviorSubject(this._state);
   }
 
   public get isShortBreak() {
-    const idx = this.periodCount % this.cycleLength;
+    const idx = this._state.sessionCount % CYCLE_LEN;
     return idx % 2 === 0 && idx !== 0;
   }
 
   public get isLongBreak() {
-    return this.periodCount % this.cycleLength === 0;
+    return this._state.sessionCount % CYCLE_LEN === 0;
   }
 
-  public get time() {
-    const mins = `${Math.floor(this.remainingMs / MINUTE_1)}`.padStart(2, "0");
-    const secs = `${Math.floor((this.remainingMs % MINUTE_1) / 1000)}`.padStart(
-      2,
-      "0"
-    );
+  private setupNewSession() {
+    this._state.sessionCount += 1;
+    this._state.isRunning = false;
 
-    return `${mins}:${secs}`;
-  }
-
-  private countdown() {
-    this.timer = setInterval(() => {
-      if (this.remainingMs === 0) {
-        clearInterval(this.timer);
-        this.periodCount += 1;
-        // TODO sound/notif
-        return;
-      }
-
-      this.remainingMs -= 1000;
-    }, 1000);
+    if (this.isShortBreak) {
+      this._state.currentSession = "short_break";
+      this._state.remainingMs = this._shortBreakMs;
+    } else if (this.isLongBreak) {
+      this._state.currentSession = "long_break";
+      this._state.remainingMs = this._longBreakMs;
+    } else {
+      this._state.currentSession = "focus";
+      this._state.remainingMs = this._focusMs;
+    }
   }
 
   public start() {
-    if (this.remainingMs === 0) {
-      this.remainingMs = this.isShortBreak
-        ? this.shortBreakMs
-        : this.isLongBreak
-        ? this.longBreakMs
-        : this.durationMs;
-    }
+    this._state.isRunning = true;
+    this.notify();
 
-    this.countdown();
+    this._timerId = setInterval(() => {
+      if (this._state.remainingMs === 0) {
+        clearInterval(this._timerId);
+        this.setupNewSession();
+      } else {
+        this._state.remainingMs -= 1000;
+      }
+
+      this.notify();
+    }, 1000);
   }
 
   public stop() {
-    clearInterval(this.timer);
+    clearInterval(this._timerId);
+    this._state.isRunning = false;
+    this.notify();
   }
 
   public skip() {
-    clearInterval(this.timer);
-    this.remainingMs = 0;
-    this.periodCount += 1;
+    clearInterval(this._timerId);
+    this.setupNewSession();
+    this.notify();
+  }
+
+  private notify() {
+    this._state$.next(this._state);
+  }
+
+  public onStateChange() {
+    return this._state$.asObservable();
   }
 
   public toString() {
-    const states = [
-      ["clock", this.time].join("="),
-      ["isShortBreak", this.isShortBreak].join("="),
-      ["isLongBreak", this.isLongBreak].join("="),
-    ];
-    return `[pomodoro] ${states.join("  ")}`;
+    const mins = `${Math.floor(this._state.remainingMs / MINUTE_1)}`.padStart(
+      2,
+      "0"
+    );
+    const secs = `${Math.floor(
+      (this._state.remainingMs % MINUTE_1) / 1000
+    )}`.padStart(2, "0");
+
+    return `${mins}:${secs} (${this._state.currentSession})`;
   }
 }
